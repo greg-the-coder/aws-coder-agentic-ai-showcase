@@ -1,0 +1,171 @@
+openapi: 3.0.0
+info:
+  title: Sync Moody's Data API
+  description: >
+    Triggers on-demand synchronization of Moody's credit rating data via Workato
+    integration pipelines. Supports full and incremental sync modes with optional
+    sector filtering. Used by the Credit Risk Sub-Agent action group in AWS Bedrock Agents.
+  version: 1.0.0
+
+paths:
+  /sync-moodys:
+    post:
+      operationId: SyncMoodysData
+      summary: Trigger Moody's data synchronization
+      description: >
+        Initiates a data synchronization job that pulls the latest Moody's rating
+        actions, credit metrics, and research updates via Workato recipes. Data is
+        written to S3 in Parquet format and an EventBridge event is emitted for
+        downstream processing. Supports full refresh or incremental delta sync.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sync_type
+              properties:
+                sync_type:
+                  type: string
+                  description: >
+                    The type of synchronization to perform.
+                    "full" re-ingests all data; "incremental" fetches only changes
+                    since the last successful sync.
+                  enum:
+                    - full
+                    - incremental
+                  example: "incremental"
+                sector_filter:
+                  type: string
+                  description: >
+                    Optional sector filter to scope the sync. Defaults to "data_centers"
+                    if not specified.
+                  enum:
+                    - data_centers
+                    - digital_infrastructure
+                    - telecom_towers
+                    - all
+                  default: data_centers
+                  example: "data_centers"
+                entity_filter:
+                  type: array
+                  description: >
+                    Optional list of specific entity names or tickers to sync.
+                    If provided, only these entities are refreshed.
+                  items:
+                    type: string
+                  example:
+                    - "EQIX"
+                    - "DLR"
+                priority:
+                  type: string
+                  description: >
+                    Job priority. "high" jobs are processed immediately;
+                    "normal" jobs are queued.
+                  enum:
+                    - high
+                    - normal
+                  default: normal
+                  example: "normal"
+            example:
+              sync_type: "incremental"
+              sector_filter: "data_centers"
+              priority: "normal"
+      responses:
+        "200":
+          description: Sync job initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    description: Unique identifier for the sync job.
+                    example: "sync-20250115-143000-a1b2c3"
+                  status:
+                    type: string
+                    description: Current status of the sync job.
+                    enum:
+                      - queued
+                      - in_progress
+                      - completed
+                      - failed
+                    example: "in_progress"
+                  sync_type:
+                    type: string
+                    description: The sync type that was initiated.
+                    enum:
+                      - full
+                      - incremental
+                    example: "incremental"
+                  records_processed:
+                    type: integer
+                    description: >
+                      Number of records processed so far. Updated as the job progresses;
+                      final count available when status is "completed".
+                    example: 0
+                  records_updated:
+                    type: integer
+                    description: Number of records that were new or changed.
+                    example: 0
+                  records_failed:
+                    type: integer
+                    description: Number of records that failed processing.
+                    example: 0
+                  started_at:
+                    type: string
+                    format: date-time
+                    description: Timestamp when the sync job started.
+                    example: "2025-01-15T14:30:00Z"
+                  estimated_completion:
+                    type: string
+                    format: date-time
+                    description: Estimated completion time for the sync job.
+                    example: "2025-01-15T14:35:00Z"
+                  last_successful_sync:
+                    type: string
+                    format: date-time
+                    description: >
+                      Timestamp of the last successful sync (before this job).
+                    example: "2025-01-15T08:30:00Z"
+                required:
+                  - job_id
+                  - status
+                  - sync_type
+                  - records_processed
+                  - started_at
+              example:
+                job_id: "sync-20250115-143000-a1b2c3"
+                status: "in_progress"
+                sync_type: "incremental"
+                records_processed: 0
+                records_updated: 0
+                records_failed: 0
+                started_at: "2025-01-15T14:30:00Z"
+                estimated_completion: "2025-01-15T14:35:00Z"
+                last_successful_sync: "2025-01-15T08:30:00Z"
+        "409":
+          description: A sync job is already in progress.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "A sync job is already in progress: sync-20250115-140000-xyz789. Please wait for it to complete."
+                  active_job_id:
+                    type: string
+                    example: "sync-20250115-140000-xyz789"
+        "500":
+          description: Internal server error during sync initiation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Failed to initiate Moody's data sync. Workato connection unavailable."

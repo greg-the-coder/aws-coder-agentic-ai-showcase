@@ -1,0 +1,322 @@
+openapi: 3.0.0
+info:
+  title: ESG Risk Assessment API
+  description: >
+    Assesses ESG and climate risk profiles for data center facilities including
+    PUE benchmarking, carbon intensity, water usage, renewable energy percentage,
+    and physical/transition climate risk scoring. Used by the ESG Risk Sub-Agent
+    action group in AWS Bedrock Agents.
+  version: 1.0.0
+
+paths:
+  /esg-risk:
+    post:
+      operationId: AssessESGRisk
+      summary: Assess ESG risk profile for a data center facility
+      description: >
+        Evaluates the environmental, social, and governance risk profile for a
+        specified data center facility. Returns PUE benchmarks, carbon intensity
+        by scope, water usage, renewable energy percentage, Moody's ESG Credit
+        Impact Score, and physical/transition climate risk assessments.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - facility_id
+              properties:
+                facility_id:
+                  type: string
+                  description: >
+                    The unique identifier for the data center facility
+                    (e.g., "EQIX-DC11-ASH" for Equinix DC11 in Ashburn).
+                  example: "EQIX-DC11-ASH"
+                dimensions:
+                  type: array
+                  description: >
+                    Optional list of ESG dimensions to assess. If omitted, all
+                    dimensions are evaluated.
+                  items:
+                    type: string
+                    enum:
+                      - pue
+                      - carbon
+                      - water
+                      - climate_physical
+                      - climate_transition
+                  example:
+                    - pue
+                    - carbon
+                    - climate_physical
+            example:
+              facility_id: "EQIX-DC11-ASH"
+              dimensions:
+                - pue
+                - carbon
+                - climate_physical
+      responses:
+        "200":
+          description: ESG risk profile for the specified facility.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  facility_id:
+                    type: string
+                    description: The facility identifier.
+                    example: "EQIX-DC11-ASH"
+                  facility_name:
+                    type: string
+                    description: Human-readable facility name and location.
+                    example: "Equinix DC11, Ashburn, VA"
+                  operator:
+                    type: string
+                    description: The data center operator.
+                    example: "Equinix"
+                  assessment_date:
+                    type: string
+                    format: date
+                    description: The date of the ESG assessment.
+                    example: "2024-12-31"
+                  pue:
+                    type: object
+                    description: Power Usage Effectiveness assessment.
+                    properties:
+                      value:
+                        type: number
+                        format: double
+                        description: Current PUE value.
+                        example: 1.35
+                      industry_average:
+                        type: number
+                        format: double
+                        description: Industry average PUE for benchmarking.
+                        example: 1.58
+                      percentile_rank:
+                        type: integer
+                        description: Percentile rank among assessed facilities (1 = best).
+                        example: 28
+                      trend:
+                        type: string
+                        description: Year-over-year trend.
+                        enum:
+                          - Improving
+                          - Stable
+                          - Deteriorating
+                        example: "Improving"
+                  carbon:
+                    type: object
+                    description: Carbon intensity assessment.
+                    properties:
+                      scope_1_tco2e:
+                        type: number
+                        format: double
+                        description: Scope 1 direct emissions in metric tons CO2e.
+                        example: 850.0
+                      scope_2_tco2e:
+                        type: number
+                        format: double
+                        description: Scope 2 purchased electricity emissions in metric tons CO2e.
+                        example: 11600.0
+                      scope_3_tco2e:
+                        type: number
+                        format: double
+                        description: Scope 3 value chain emissions in metric tons CO2e.
+                        example: 3200.0
+                      total_tco2e:
+                        type: number
+                        format: double
+                        description: Total emissions across all scopes.
+                        example: 15650.0
+                      intensity_per_mw:
+                        type: number
+                        format: double
+                        description: Carbon intensity per MW of IT load (tCO2e/MW).
+                        example: 312.0
+                      yoy_change_pct:
+                        type: number
+                        format: double
+                        description: Year-over-year change in total emissions as a percentage.
+                        example: -8.5
+                  renewable_energy_pct:
+                    type: number
+                    format: double
+                    description: >
+                      Percentage of total energy consumption from renewable sources.
+                    example: 78.0
+                  water:
+                    type: object
+                    description: Water usage assessment.
+                    properties:
+                      wue_liters_per_kwh:
+                        type: number
+                        format: double
+                        description: Water Usage Effectiveness in liters per kWh of IT load.
+                        example: 1.2
+                      water_stress_index:
+                        type: string
+                        description: Water stress level at the facility location.
+                        enum:
+                          - Low
+                          - Low-Medium
+                          - Medium-High
+                          - High
+                          - Extremely High
+                        example: "Low-Medium"
+                      annual_consumption_liters:
+                        type: number
+                        format: double
+                        description: Total annual water consumption in liters.
+                        example: 45000000.0
+                  climate_physical:
+                    type: object
+                    description: Physical climate risk assessment.
+                    properties:
+                      overall_score:
+                        type: string
+                        description: Overall physical climate risk rating.
+                        enum:
+                          - Low
+                          - Moderate
+                          - High
+                          - Very High
+                        example: "Moderate"
+                      flood_risk:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Moderate"
+                      extreme_heat_risk:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Low"
+                      wildfire_risk:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Low"
+                      hurricane_risk:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Moderate"
+                      sea_level_rise_risk:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Low"
+                  climate_transition:
+                    type: object
+                    description: Climate transition risk assessment.
+                    properties:
+                      overall_score:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Low"
+                      carbon_pricing_exposure:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Low"
+                      regulatory_risk:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Low"
+                      stranded_asset_risk:
+                        type: string
+                        enum: ["Low", "Moderate", "High", "Very High"]
+                        example: "Low"
+                      grid_decarbonization_year:
+                        type: integer
+                        description: Projected year for local grid to reach net-zero.
+                        example: 2040
+                  moodys_cis_score:
+                    type: string
+                    description: >
+                      Moody's ESG Credit Impact Score. CIS-1 (Positive) to CIS-5
+                      (Very Highly Negative).
+                    enum:
+                      - CIS-1
+                      - CIS-2
+                      - CIS-3
+                      - CIS-4
+                      - CIS-5
+                    example: "CIS-2"
+                  moodys_cis_description:
+                    type: string
+                    description: Interpretation of the CIS score.
+                    example: "Neutral-to-Low — ESG factors have a limited impact on the credit profile."
+                  data_source:
+                    type: string
+                    description: The source for this ESG data.
+                    example: "Moody's ESG Solutions / EPA ENERGY STAR"
+                  data_vintage:
+                    type: string
+                    format: date-time
+                    description: Timestamp when this data was last updated.
+                    example: "2025-01-01T00:00:00Z"
+                required:
+                  - facility_id
+                  - facility_name
+                  - operator
+                  - assessment_date
+                  - moodys_cis_score
+                  - data_source
+                  - data_vintage
+              example:
+                facility_id: "EQIX-DC11-ASH"
+                facility_name: "Equinix DC11, Ashburn, VA"
+                operator: "Equinix"
+                assessment_date: "2024-12-31"
+                pue:
+                  value: 1.35
+                  industry_average: 1.58
+                  percentile_rank: 28
+                  trend: "Improving"
+                carbon:
+                  scope_1_tco2e: 850.0
+                  scope_2_tco2e: 11600.0
+                  scope_3_tco2e: 3200.0
+                  total_tco2e: 15650.0
+                  intensity_per_mw: 312.0
+                  yoy_change_pct: -8.5
+                renewable_energy_pct: 78.0
+                water:
+                  wue_liters_per_kwh: 1.2
+                  water_stress_index: "Low-Medium"
+                  annual_consumption_liters: 45000000.0
+                climate_physical:
+                  overall_score: "Moderate"
+                  flood_risk: "Moderate"
+                  extreme_heat_risk: "Low"
+                  wildfire_risk: "Low"
+                  hurricane_risk: "Moderate"
+                  sea_level_rise_risk: "Low"
+                climate_transition:
+                  overall_score: "Low"
+                  carbon_pricing_exposure: "Low"
+                  regulatory_risk: "Low"
+                  stranded_asset_risk: "Low"
+                  grid_decarbonization_year: 2040
+                moodys_cis_score: "CIS-2"
+                moodys_cis_description: "Neutral-to-Low — ESG factors have a limited impact on the credit profile."
+                data_source: "Moody's ESG Solutions / EPA ENERGY STAR"
+                data_vintage: "2025-01-01T00:00:00Z"
+        "404":
+          description: No ESG data found for the specified facility.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "No ESG data available for facility: UNKNOWN-001"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal error assessing ESG risk."

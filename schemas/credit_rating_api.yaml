@@ -1,0 +1,134 @@
+openapi: 3.0.0
+info:
+  title: Credit Rating Lookup API
+  description: >
+    Retrieves Moody's credit ratings for data center operators and facilities.
+    Used by the Credit Risk Sub-Agent action group in AWS Bedrock Agents.
+  version: 1.0.0
+
+paths:
+  /credit-rating:
+    get:
+      operationId: LookupCreditRating
+      summary: Retrieve Moody's credit rating for a data center operator or facility
+      description: >
+        Looks up the current Moody's credit rating, outlook, probability of default,
+        and loss given default for a specified data center entity. Supports issuer-level,
+        facility-level, and outlook-only queries.
+      parameters:
+        - name: entity_name
+          in: query
+          required: true
+          description: >
+            The name or ticker of the data center operator or facility
+            (e.g., "Equinix", "EQIX", "Digital Realty", "DLR").
+          schema:
+            type: string
+          example: "Equinix"
+        - name: rating_type
+          in: query
+          required: false
+          description: >
+            The type of rating to retrieve. Defaults to "issuer" if not specified.
+          schema:
+            type: string
+            enum:
+              - issuer
+              - facility
+              - outlook
+            default: issuer
+          example: "issuer"
+      responses:
+        "200":
+          description: Credit rating details for the specified entity.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    type: string
+                    description: The canonical name of the rated entity.
+                    example: "Equinix, Inc."
+                  rating:
+                    type: string
+                    description: >
+                      The Moody's credit rating (e.g., Aaa, Aa1, Aa2, Aa3, A1, A2, A3,
+                      Baa1, Baa2, Baa3, Ba1, Ba2, Ba3, B1, B2, B3, Caa1, Caa2, Caa3, Ca, C).
+                    example: "Baa2"
+                  outlook:
+                    type: string
+                    description: The current rating outlook.
+                    enum:
+                      - Positive
+                      - Stable
+                      - Negative
+                      - Developing
+                      - "Rating Under Review"
+                      - Withdrawn
+                    example: "Stable"
+                  last_action_date:
+                    type: string
+                    format: date
+                    description: The date of the most recent rating action.
+                    example: "2024-11-15"
+                  probability_of_default:
+                    type: number
+                    format: double
+                    description: >
+                      The estimated 1-year probability of default as a decimal
+                      (e.g., 0.0012 represents 0.12%).
+                    example: 0.0012
+                  loss_given_default:
+                    type: number
+                    format: double
+                    description: >
+                      The estimated loss given default as a decimal
+                      (e.g., 0.45 represents 45% expected loss).
+                    example: 0.45
+                  data_source:
+                    type: string
+                    description: The source system for this data.
+                    example: "Moody's CreditView"
+                  data_vintage:
+                    type: string
+                    format: date-time
+                    description: >
+                      The timestamp when this data was last refreshed from the source.
+                    example: "2025-01-15T08:30:00Z"
+                required:
+                  - entity
+                  - rating
+                  - outlook
+                  - last_action_date
+                  - data_source
+                  - data_vintage
+              example:
+                entity: "Equinix, Inc."
+                rating: "Baa2"
+                outlook: "Stable"
+                last_action_date: "2024-11-15"
+                probability_of_default: 0.0012
+                loss_given_default: 0.45
+                data_source: "Moody's CreditView"
+                data_vintage: "2025-01-15T08:30:00Z"
+        "404":
+          description: No rating found for the specified entity.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "No rating found for entity: CoreWeave"
+        "500":
+          description: Internal server error during rating lookup.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal error retrieving credit rating data."

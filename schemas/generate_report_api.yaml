@@ -1,0 +1,203 @@
+openapi: 3.0.0
+info:
+  title: Generate Report API
+  description: >
+    Compiles multi-agent outputs into structured reports (PDF or Markdown)
+    for data center investment analysis. Used by the Market Analytics Sub-Agent
+    action group in AWS Bedrock Agents.
+  version: 1.0.0
+
+paths:
+  /generate-report:
+    post:
+      operationId: GenerateReport
+      summary: Generate a structured investment analysis report
+      description: >
+        Triggers asynchronous generation of a formatted report combining credit
+        risk, market analytics, and ESG data for specified operators and markets.
+        The report is assembled via Step Functions, stored in S3, and a download
+        URL is returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - report_type
+                - operator_ids
+              properties:
+                report_type:
+                  type: string
+                  description: The type of report to generate.
+                  enum:
+                    - sector_overview
+                    - issuer_deep_dive
+                    - portfolio_summary
+                    - weekly_digest
+                    - market_comparison
+                    - esg_assessment
+                  example: "issuer_deep_dive"
+                operator_ids:
+                  type: array
+                  description: >
+                    List of operator identifiers (tickers or entity IDs) to include
+                    in the report.
+                  items:
+                    type: string
+                  minItems: 1
+                  example:
+                    - "EQIX"
+                    - "DLR"
+                include_sections:
+                  type: array
+                  description: >
+                    Optional list of report sections to include. If omitted, all
+                    sections relevant to the report type are included.
+                  items:
+                    type: string
+                    enum:
+                      - credit_summary
+                      - financial_metrics
+                      - market_dynamics
+                      - esg_profile
+                      - peer_comparison
+                      - rating_history
+                      - risk_factors
+                      - appendix
+                  example:
+                    - credit_summary
+                    - financial_metrics
+                    - esg_profile
+                format:
+                  type: string
+                  description: The output format for the report. Defaults to "pdf".
+                  enum:
+                    - pdf
+                    - markdown
+                  default: pdf
+                  example: "pdf"
+                metro_filter:
+                  type: array
+                  description: >
+                    Optional list of metro markets to focus on for market dynamics sections.
+                  items:
+                    type: string
+                  example:
+                    - "Northern Virginia"
+                    - "Dallas-Fort Worth"
+                date_range:
+                  type: string
+                  description: >
+                    The date range for historical data in the report (ISO 8601 interval
+                    or relative period).
+                  example: "2024-01-01/2024-12-31"
+            example:
+              report_type: "issuer_deep_dive"
+              operator_ids:
+                - "EQIX"
+                - "DLR"
+              include_sections:
+                - credit_summary
+                - financial_metrics
+                - esg_profile
+              format: "pdf"
+              metro_filter:
+                - "Northern Virginia"
+              date_range: "2024-01-01/2024-12-31"
+      responses:
+        "200":
+          description: Report generation initiated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_id:
+                    type: string
+                    description: Unique identifier for the generated report.
+                    example: "rpt-20250115-eqix-dlr-a1b2c3"
+                  download_url:
+                    type: string
+                    format: uri
+                    description: >
+                      Pre-signed S3 URL to download the report. Valid for 24 hours.
+                    example: "https://dc-invest-reports.s3.amazonaws.com/reports/rpt-20250115-eqix-dlr-a1b2c3.pdf?X-Amz-Signature=..."
+                  format:
+                    type: string
+                    description: The output format of the generated report.
+                    enum:
+                      - pdf
+                      - markdown
+                    example: "pdf"
+                  generated_at:
+                    type: string
+                    format: date-time
+                    description: Timestamp when the report was generated.
+                    example: "2025-01-15T14:30:00Z"
+                  page_count:
+                    type: integer
+                    description: Number of pages in the report (PDF only).
+                    example: 12
+                  sections_included:
+                    type: array
+                    description: List of sections included in the report.
+                    items:
+                      type: string
+                    example:
+                      - credit_summary
+                      - financial_metrics
+                      - esg_profile
+                  operators_covered:
+                    type: array
+                    description: List of operators covered in the report.
+                    items:
+                      type: string
+                    example:
+                      - "Equinix, Inc."
+                      - "Digital Realty Trust, Inc."
+                  data_vintage:
+                    type: string
+                    format: date-time
+                    description: >
+                      The most recent data vintage used across all sections.
+                    example: "2025-01-15T08:30:00Z"
+                required:
+                  - report_id
+                  - download_url
+                  - format
+                  - generated_at
+              example:
+                report_id: "rpt-20250115-eqix-dlr-a1b2c3"
+                download_url: "https://dc-invest-reports.s3.amazonaws.com/reports/rpt-20250115-eqix-dlr-a1b2c3.pdf?X-Amz-Signature=abc123"
+                format: "pdf"
+                generated_at: "2025-01-15T14:30:00Z"
+                page_count: 12
+                sections_included:
+                  - credit_summary
+                  - financial_metrics
+                  - esg_profile
+                operators_covered:
+                  - "Equinix, Inc."
+                  - "Digital Realty Trust, Inc."
+                data_vintage: "2025-01-15T08:30:00Z"
+        "400":
+          description: Invalid request parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid report_type: must be one of sector_overview, issuer_deep_dive, portfolio_summary, weekly_digest, market_comparison, esg_assessment."
+        "500":
+          description: Internal server error during report generation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal error generating report."

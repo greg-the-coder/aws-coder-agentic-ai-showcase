@@ -1,0 +1,193 @@
+openapi: 3.0.0
+info:
+  title: Financial Metrics API
+  description: >
+    Queries financial metrics for data center operators including leverage ratios,
+    coverage ratios, and profitability metrics. Used by the Credit Risk Sub-Agent
+    action group in AWS Bedrock Agents.
+  version: 1.0.0
+
+paths:
+  /financial-metrics:
+    get:
+      operationId: GetFinancialMetrics
+      summary: Query financial metrics for a data center operator
+      description: >
+        Retrieves financial metrics such as Debt/EBITDA, FFO/Debt, AFFO payout ratio,
+        occupancy rate, interest coverage, and CapEx ratios for a specified entity
+        over a given reporting period.
+      parameters:
+        - name: entity_id
+          in: query
+          required: true
+          description: >
+            The unique identifier or ticker for the data center operator
+            (e.g., "EQIX", "DLR", "QTS").
+          schema:
+            type: string
+          example: "EQIX"
+        - name: metrics
+          in: query
+          required: false
+          description: >
+            An array of specific metrics to retrieve. If omitted, all available
+            metrics are returned.
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                - dscr
+                - leverage
+                - ebitda_margin
+                - revenue_growth
+                - capex_ratio
+                - ffo_debt
+                - affo_payout
+                - occupancy_rate
+                - interest_coverage
+          style: form
+          explode: true
+          example:
+            - leverage
+            - ffo_debt
+        - name: period
+          in: query
+          required: false
+          description: >
+            The reporting period for the metrics. Defaults to "latest" if not specified.
+          schema:
+            type: string
+            enum:
+              - latest
+              - trailing_4q
+              - yoy
+            default: latest
+          example: "trailing_4q"
+      responses:
+        "200":
+          description: Financial metrics for the specified entity and period.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity_id:
+                    type: string
+                    description: The entity identifier.
+                    example: "EQIX"
+                  entity_name:
+                    type: string
+                    description: The full name of the entity.
+                    example: "Equinix, Inc."
+                  period:
+                    type: string
+                    description: The reporting period for the returned metrics.
+                    example: "trailing_4q"
+                  metrics:
+                    type: array
+                    description: Array of metric objects with values.
+                    items:
+                      type: object
+                      properties:
+                        metric_name:
+                          type: string
+                          description: The name of the financial metric.
+                          example: "leverage"
+                        display_name:
+                          type: string
+                          description: Human-readable metric label.
+                          example: "Debt/EBITDA"
+                        value:
+                          type: number
+                          format: double
+                          description: The metric value.
+                          example: 5.2
+                        unit:
+                          type: string
+                          description: The unit of measurement.
+                          example: "x"
+                        period_date:
+                          type: string
+                          format: date
+                          description: The end date of the reporting period.
+                          example: "2024-12-31"
+                        quarter:
+                          type: string
+                          description: The fiscal quarter (e.g., "Q4 2024").
+                          example: "Q4 2024"
+                        yoy_change:
+                          type: number
+                          format: double
+                          description: Year-over-year change as a decimal (e.g., -0.05 = 5% improvement for leverage).
+                          example: -0.05
+                        trend:
+                          type: string
+                          description: Directional trend indicator.
+                          enum:
+                            - Improving
+                            - Stable
+                            - Deteriorating
+                          example: "Improving"
+                      required:
+                        - metric_name
+                        - value
+                        - period_date
+                  data_source:
+                    type: string
+                    description: The source system for this financial data.
+                    example: "Moody's CreditView / Company Filings"
+                  data_vintage:
+                    type: string
+                    format: date-time
+                    description: Timestamp when data was last refreshed.
+                    example: "2025-01-15T12:00:00Z"
+                required:
+                  - entity_id
+                  - period
+                  - metrics
+                  - data_source
+                  - data_vintage
+              example:
+                entity_id: "EQIX"
+                entity_name: "Equinix, Inc."
+                period: "trailing_4q"
+                metrics:
+                  - metric_name: "leverage"
+                    display_name: "Debt/EBITDA"
+                    value: 5.2
+                    unit: "x"
+                    period_date: "2024-12-31"
+                    quarter: "Q4 2024"
+                    yoy_change: -0.05
+                    trend: "Improving"
+                  - metric_name: "ffo_debt"
+                    display_name: "FFO/Debt"
+                    value: 0.14
+                    unit: "%"
+                    period_date: "2024-12-31"
+                    quarter: "Q4 2024"
+                    yoy_change: 0.01
+                    trend: "Improving"
+                data_source: "Moody's CreditView / Company Filings"
+                data_vintage: "2025-01-15T12:00:00Z"
+        "404":
+          description: No financial data found for the specified entity.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "No financial metrics found for entity: XYZ"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal error retrieving financial metrics."

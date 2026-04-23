@@ -1,0 +1,208 @@
+openapi: 3.0.0
+info:
+  title: Market Data API
+  description: >
+    Retrieves data center market analytics by metropolitan area including supply,
+    demand, vacancy, absorption, pricing, and construction pipeline data. Used by
+    the Market Analytics Sub-Agent action group in AWS Bedrock Agents.
+  version: 1.0.0
+
+paths:
+  /market-data:
+    get:
+      operationId: QueryMarketData
+      summary: Retrieve data center market analytics by metro area
+      description: >
+        Queries supply and demand dynamics, vacancy rates, absorption trends,
+        rental pricing, and construction pipeline data for a specified
+        metropolitan data center market.
+      parameters:
+        - name: metro
+          in: query
+          required: true
+          description: >
+            The metropolitan market to query (e.g., "Northern Virginia", "Dallas-Fort Worth",
+            "Phoenix", "Tokyo", "London", "Frankfurt", "Amsterdam", "Singapore").
+          schema:
+            type: string
+          example: "Northern Virginia"
+        - name: metric_type
+          in: query
+          required: false
+          description: >
+            The specific market metric to retrieve. If omitted, all available
+            metrics for the metro are returned.
+          schema:
+            type: string
+            enum:
+              - supply
+              - demand
+              - vacancy
+              - absorption
+              - pricing
+              - construction_pipeline
+          example: "vacancy"
+        - name: date_range
+          in: query
+          required: false
+          description: >
+            The date range for the data in ISO 8601 interval format
+            (e.g., "2024-01-01/2024-12-31") or a relative period
+            (e.g., "last_4q", "last_12m", "ytd").
+          schema:
+            type: string
+          example: "2024-01-01/2024-12-31"
+      responses:
+        "200":
+          description: Market data for the specified metro and parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metro:
+                    type: string
+                    description: The metropolitan market name.
+                    example: "Northern Virginia"
+                  region:
+                    type: string
+                    description: The broader geographic region.
+                    enum:
+                      - North America
+                      - APAC
+                      - EMEA
+                    example: "North America"
+                  reporting_period:
+                    type: string
+                    description: The reporting period for the data.
+                    example: "Q4 2024"
+                  total_supply_mw:
+                    type: number
+                    format: double
+                    description: Total operational supply in megawatts (MW).
+                    example: 2845.0
+                  new_supply_mw:
+                    type: number
+                    format: double
+                    description: New supply added during the reporting period (MW).
+                    example: 312.0
+                  total_demand_mw:
+                    type: number
+                    format: double
+                    description: Total demand / leased capacity in megawatts (MW).
+                    example: 2754.0
+                  net_absorption_mw:
+                    type: number
+                    format: double
+                    description: Net absorption during the reporting period (MW).
+                    example: 412.0
+                  vacancy_rate_pct:
+                    type: number
+                    format: double
+                    description: Current vacancy rate as a percentage.
+                    example: 3.2
+                  pre_lease_rate_pct:
+                    type: number
+                    format: double
+                    description: >
+                      Percentage of under-construction inventory that is pre-leased.
+                    example: 72.5
+                  avg_pricing_per_kw:
+                    type: number
+                    format: double
+                    description: >
+                      Average rental rate in USD per kW per month for wholesale colocation.
+                    example: 135.0
+                  pricing_yoy_change_pct:
+                    type: number
+                    format: double
+                    description: Year-over-year change in average pricing as a percentage.
+                    example: 8.5
+                  construction_pipeline_mw:
+                    type: number
+                    format: double
+                    description: Total capacity under construction (MW).
+                    example: 1250.0
+                  expected_delivery_date:
+                    type: string
+                    format: date
+                    description: >
+                      Estimated delivery date for the majority of the construction pipeline.
+                    example: "2025-09-30"
+                  top_operators:
+                    type: array
+                    description: Top operators by market share in this metro.
+                    items:
+                      type: object
+                      properties:
+                        operator:
+                          type: string
+                          example: "Equinix"
+                        market_share_pct:
+                          type: number
+                          format: double
+                          example: 18.5
+                        capacity_mw:
+                          type: number
+                          format: double
+                          example: 526.3
+                  data_source:
+                    type: string
+                    description: The source for this market data.
+                    example: "CBRE Data Center Solutions"
+                  data_vintage:
+                    type: string
+                    format: date-time
+                    description: Timestamp when this data was last updated.
+                    example: "2025-01-10T00:00:00Z"
+                required:
+                  - metro
+                  - region
+                  - reporting_period
+                  - total_supply_mw
+                  - vacancy_rate_pct
+                  - data_source
+                  - data_vintage
+              example:
+                metro: "Northern Virginia"
+                region: "North America"
+                reporting_period: "Q4 2024"
+                total_supply_mw: 2845.0
+                new_supply_mw: 312.0
+                total_demand_mw: 2754.0
+                net_absorption_mw: 412.0
+                vacancy_rate_pct: 3.2
+                pre_lease_rate_pct: 72.5
+                avg_pricing_per_kw: 135.0
+                pricing_yoy_change_pct: 8.5
+                construction_pipeline_mw: 1250.0
+                expected_delivery_date: "2025-09-30"
+                top_operators:
+                  - operator: "Equinix"
+                    market_share_pct: 18.5
+                    capacity_mw: 526.3
+                  - operator: "Digital Realty"
+                    market_share_pct: 15.2
+                    capacity_mw: 432.4
+                data_source: "CBRE Data Center Solutions"
+                data_vintage: "2025-01-10T00:00:00Z"
+        "404":
+          description: No market data found for the specified metro.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "No market data available for metro: Zurich"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal error retrieving market data."
