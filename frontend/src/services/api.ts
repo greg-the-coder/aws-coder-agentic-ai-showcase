@@ -1,6 +1,6 @@
 import type { AgentResponse, ChatSession } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || '';  // empty = same origin (CloudFront proxy)
 const BASE_URL = `${API_URL}/v1`;
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {

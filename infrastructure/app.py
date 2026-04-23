@@ -7,6 +7,7 @@ from lib.data_stack import DataStack
 from lib.lambda_stack import LambdaStack
 from lib.api_stack import ApiStack
 from lib.agent_stack import AgentStack
+from lib.frontend_stack import FrontendStack
 
 app = cdk.App()
 
@@ -39,6 +40,14 @@ agent_stack = AgentStack(
     app,
     "DcaiAgentStack",
     lambda_stack=lambda_stack,
+    env=env,
+)
+
+# --- Frontend (S3 + CloudFront) ---
+frontend_stack = FrontendStack(
+    app,
+    "DcaiFrontendStack",
+    api_stack=api_stack,
     env=env,
 )
 
