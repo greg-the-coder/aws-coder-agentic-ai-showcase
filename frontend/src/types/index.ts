@@ -80,11 +80,15 @@ export interface ChatSession {
 }
 
 export interface AgentResponse {
-  message: string;
-  sources: string[];
-  suggestions: string[];
-  trace_id: string;
-  latency_ms: number;
+  session_id?: string;
+  message?: string;
+  response?: string;
+  source?: string;
+  sources?: string[];
+  suggestions?: string[];
+  trace_id?: string;
+  latency_ms?: number;
+  timestamp?: string;
 }
 
 // ─── Workato Types ───────────────────────────────────────────────────────────

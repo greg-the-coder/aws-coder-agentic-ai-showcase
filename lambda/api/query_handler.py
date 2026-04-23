@@ -111,6 +111,56 @@ def _mock_response(message: str) -> str:
     return _MOCK_RESPONSES[intent]
 
 
+def _parse_sources(response_text: str, source: str) -> List[str]:
+    """Extract 'Source:' lines from *response_text*.
+
+    Falls back to a sensible default based on *source* when the response
+    text contains no explicit source annotations.
+    """
+    import re
+    matches = re.findall(r"Source:\s*(.+)", response_text)
+    if matches:
+        return [f"Source: {m.strip()}" for m in matches]
+    if source == "mock" or source == "mock-fallback":
+        return ["Source: Moody's CreditView (Mock Data)"]
+    return ["Source: AWS Bedrock Agent"]
+
+
+_SUGGESTIONS: Dict[str, List[str]] = {
+    "credit": [
+        "What is the market outlook for Northern Virginia?",
+        "Show ESG profile for Switch",
+        "Compare leverage for EQIX and DLR",
+    ],
+    "market": [
+        "Show credit rating for Equinix",
+        "What is the ESG risk for CyrusOne?",
+        "Compare vacancy rates in Dallas vs Phoenix",
+    ],
+    "esg": [
+        "What is the credit rating for Switch?",
+        "Compare PUE across top 5 operators",
+        "Show market supply in Northern Virginia",
+    ],
+    "default": [
+        "Show credit rating for Equinix",
+        "What is the market outlook for Northern Virginia?",
+        "Show ESG profile for Switch",
+    ],
+}
+
+
+def _generate_suggestions(message: str) -> List[str]:
+    """Return 3 contextual follow-up suggestions based on intent."""
+    intent = _classify_intent(message)
+    return _SUGGESTIONS.get(intent, _SUGGESTIONS["default"])
+
+
+def _generate_trace_id() -> str:
+    """Return a trace ID of the form ``tr-<12-char hex>``."""
+    return f"tr-{uuid.uuid4().hex[:12]}"
+
+
 # ---------------------------------------------------------------------------
 # Bedrock Agent invocation
 # ---------------------------------------------------------------------------
@@ -236,7 +286,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     return _api_response(200, {
         "session_id": session_id,
         "response": response_text,
+        "message": response_text,
         "source": source,
+        "sources": _parse_sources(response_text, source),
+        "suggestions": _generate_suggestions(message),
+        "trace_id": _generate_trace_id(),
         "latency_ms": round(latency_ms, 1),
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     })

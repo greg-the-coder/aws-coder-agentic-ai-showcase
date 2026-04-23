@@ -163,12 +163,18 @@ export default function ChatPanel() {
 
       try {
         const apiRes = await submitQuery(sessionId, query);
+        const text = apiRes.message || apiRes.response || '';
+        if (!text) throw new Error('Empty response');
         responseData = {
-          content: apiRes.message,
-          sources: apiRes.sources,
-          suggestions: apiRes.suggestions,
+          content: text,
+          sources: apiRes.sources ?? (apiRes.source ? [`Source: ${apiRes.source}`] : []),
+          suggestions: apiRes.suggestions ?? [
+            'Compare leverage for EQIX and DLR',
+            'Show ESG profile for Switch',
+            'What is the market outlook for Northern Virginia?',
+          ],
         };
-        traceId = apiRes.trace_id;
+        traceId = apiRes.trace_id ?? `tr-${Date.now()}`;
       } catch {
         // API unavailable — use demo data
         await new Promise((r) => setTimeout(r, 800 + Math.random() * 1200));
