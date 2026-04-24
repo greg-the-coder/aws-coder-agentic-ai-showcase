@@ -11,52 +11,36 @@ Prompt to demo using Coder Agents:
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│  FRONTEND — React SPA (Vite + TypeScript + Tailwind)                │
-│  ┌──────────┐ ┌───────────┐ ┌────────────┐ ┌────────────┐          │
-│  │   Chat   │ │ Portfolio │ │  Workato   │ │   Arize    │          │
-│  │  Panel   │ │ Dashboard │ │   Panel    │ │   Panel    │          │
-│  └────┬─────┘ └─────┬─────┘ └─────┬──────┘ └─────┬──────┘          │
-│       └──────────────┴─────────────┴──────────────┘                 │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │
-                ┌──────────▼──────────┐
-                │  API Gateway (REST) │
-                │  /prod              │
-                └──┬──────┬───────┬───┘
-                   │      │       │
-        ┌──────────▼┐ ┌───▼────┐ ┌▼───────────┐
-        │ /v1/*     │ │/mock/  │ │/mock/      │
-        │ Core API  │ │workato │ │arize       │
-        └─────┬─────┘ └────────┘ └────────────┘
-              │
-   ┌──────────▼──────────────────────────┐
-   │  BEDROCK AGENTS                     │
-   │                                     │
-   │  ┌──────────────────────────────┐   │
-   │  │  SUPERVISOR AGENT            │   │
-   │  │  Mistral Large 3 (675B)      │   │
-   │  └──┬──────────┬──────────┬─────┘   │
-   │     │          │          │         │
-   │  ┌──▼───┐  ┌───▼───┐  ┌──▼───┐     │
-   │  │Credit│  │Market │  │ ESG  │     │
-   │  │Risk  │  │Analyt.│  │ Risk │     │
-   │  └──┬───┘  └───┬───┘  └──┬───┘     │
-   │     └──────────┼─────────┘         │
-   │         ┌──────▼──────┐            │
-   │         │ 6 Action    │            │
-   │         │ Group       │            │
-   │         │ Lambdas     │            │
-   │         └──────┬──────┘            │
-   └────────────────┼───────────────────┘
-                    │
-   ┌────────────────▼────────────────────┐
-   │  DATA LAYER                         │
-   │  DynamoDB (7 tables) │ S3 (2 buckets)│
-   │  CloudWatch Metrics                 │
-   └─────────────────────────────────────┘
-```
+![AWS Architecture Diagram](generated-diagrams/dcai-aws-architecture.png)
+
+The system is deployed across five tiers in **us-east-1**, each represented in the diagram above:
+
+### Frontend — CloudFront + S3
+
+A **CloudFront Distribution** serves the React SPA from a private **S3 Website Bucket** via Origin Access Control (OAC). CloudFront also proxies `/v1/*` and `/mock/*` requests to the API tier, giving the frontend a single domain for both static assets and API calls. The SPA itself includes four panels: Chat, Portfolio Dashboard, Workato, and Arize.
+
+### API Layer
+
+An **API Gateway** REST API (`/prod` stage) exposes all backend routes. Core endpoints live under `/v1/*` (query, health, sessions, reports) while mock third-party services are under `/mock/workato` and `/mock/arize`.
+
+### Lambda Functions
+
+Thirteen **Lambda** functions (Python 3.12) handle all compute:
+
+- **Core API Handlers** — `query handler`, `health handler`, `sessions handler`, and `reports handler` serve the `/v1/*` routes.
+- **Mock Service Handlers** — `mock Workato` and `mock Arize` simulate iPaaS and LLM observability without external dependencies.
+- **Action Group Handlers** — Six functions (`credit rating`, `financial metrics`, `market data`, `ESG risk`, `generate report`, `sync Moodys`) are wired as Bedrock Agent action groups.
+- **Seed** — A standalone `seed data` function populates DynamoDB with operator data for six data center companies.
+
+### Amazon Bedrock Agents
+
+A **Supervisor Agent** powered by Mistral Large 3 (675B) uses the Supervisor Router pattern to dispatch queries to three specialist **Sub-Agents**: Credit Risk, Market Analytics, and ESG Risk. Each sub-agent invokes its corresponding action group Lambdas and the Supervisor synthesizes cross-domain responses when needed.
+
+### Data Layer
+
+- **DynamoDB (7 tables)** — `sessions`, `operators`, `metrics`, `esg-profiles`, `market-data`, `traces`, and `workato-runs` store all application state with on-demand billing.
+- **S3 (2 buckets)** — A Data Lake bucket for raw data and a Reports bucket for generated investment reports.
+- **CloudWatch Metrics** — The mock Arize handler publishes `TraceLatency` and `TokenCount` metrics to the `DCInvestAgent` custom namespace for observability.
 
 ---
 
