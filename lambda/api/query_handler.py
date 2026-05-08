@@ -1,9 +1,11 @@
-"""POST /v1/query — Submit natural language query to Bedrock Agent.
+"""POST /v1/query — Submit natural language query to Bedrock Agent or AgentCore.
 
-Receives ``{ "session_id": "...", "message": "..." }``, invokes the Bedrock
-Agent via ``bedrock-agent-runtime``, streams the response, stores the
-conversation in the ``dcai-sessions`` table, and falls back to a mock
-response if the Bedrock Agent is not yet deployed.
+Receives ``{ "session_id": "...", "message": "..." }``, invokes either:
+  1. AgentCore supervisor Lambda (Strands SDK agent) — if AGENTCORE_FUNCTION_NAME is set
+  2. Bedrock Agent via ``bedrock-agent-runtime`` — if BEDROCK_AGENT_ID is set
+  3. Mock fallback — keyword-based classification
+
+Stores the conversation in the ``dcai-sessions`` table and returns the response.
 """
 
 from __future__ import annotations
@@ -25,9 +27,11 @@ logger.setLevel(logging.INFO)
 TABLE_SESSIONS: str = os.environ.get("TABLE_SESSIONS", "dcai-sessions")
 BEDROCK_AGENT_ID: str = os.environ.get("BEDROCK_AGENT_ID", "")
 BEDROCK_AGENT_ALIAS_ID: str = os.environ.get("BEDROCK_AGENT_ALIAS_ID", "")
+AGENTCORE_FUNCTION_NAME: str = os.environ.get("AGENTCORE_FUNCTION_NAME", "")
 
 _dynamodb: Any = None
 _bedrock_runtime: Any = None
+_lambda_client: Any = None
 
 
 def _get_dynamodb() -> Any:
@@ -45,6 +49,16 @@ def _get_bedrock_runtime() -> Any:
             config=Config(read_timeout=25, connect_timeout=5)
         )
     return _bedrock_runtime
+
+
+def _get_lambda_client() -> Any:
+    global _lambda_client
+    if _lambda_client is None:
+        _lambda_client = boto3.client(
+            "lambda",
+            config=Config(read_timeout=95, connect_timeout=5)
+        )
+    return _lambda_client
 
 
 def _api_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -106,24 +120,22 @@ def _classify_intent(message: str) -> str:
 
 
 def _mock_response(message: str) -> str:
-    """Generate a mock response when Bedrock Agent is not available."""
+    """Generate a mock response when neither AgentCore nor Bedrock Agent is available."""
     intent = _classify_intent(message)
     return _MOCK_RESPONSES[intent]
 
 
 def _parse_sources(response_text: str, source: str) -> List[str]:
-    """Extract 'Source:' lines from *response_text*.
-
-    Falls back to a sensible default based on *source* when the response
-    text contains no explicit source annotations.
-    """
+    """Extract 'Source:' lines from response text."""
     import re
     matches = re.findall(r"Source:\s*(.+)", response_text)
     if matches:
         return [f"Source: {m.strip()}" for m in matches]
-    if source == "mock" or source == "mock-fallback":
-        return ["Source: Moody's CreditView (Mock Data)"]
-    return ["Source: AWS Bedrock Agent"]
+    if source == "agentcore-strands":
+        return ["Source: AWS Bedrock AgentCore (Strands SDK + Mistral Large)"]
+    if source == "bedrock-agent":
+        return ["Source: AWS Bedrock Agent"]
+    return ["Source: Moody's CreditView (Mock Data)"]
 
 
 _SUGGESTIONS: Dict[str, List[str]] = {
@@ -162,6 +174,40 @@ def _generate_trace_id() -> str:
 
 
 # ---------------------------------------------------------------------------
+# AgentCore invocation (Strands SDK agent via Lambda)
+# ---------------------------------------------------------------------------
+
+def _invoke_agentcore(session_id: str, message: str) -> str:
+    """Invoke the AgentCore supervisor Lambda and return the response text."""
+    client = _get_lambda_client()
+
+    payload = json.dumps({
+        "body": json.dumps({
+            "session_id": session_id,
+            "message": message,
+        })
+    })
+
+    response = client.invoke(
+        FunctionName=AGENTCORE_FUNCTION_NAME,
+        InvocationType="RequestResponse",
+        Payload=payload.encode("utf-8"),
+    )
+
+    # Parse the Lambda response
+    response_payload = json.loads(response["Payload"].read().decode("utf-8"))
+
+    if response_payload.get("statusCode") == 200:
+        body = json.loads(response_payload["body"])
+        return body.get("response", body.get("message", ""))
+    else:
+        error_body = response_payload.get("body", "{}")
+        if isinstance(error_body, str):
+            error_body = json.loads(error_body)
+        raise RuntimeError(f"AgentCore returned error: {error_body}")
+
+
+# ---------------------------------------------------------------------------
 # Bedrock Agent invocation
 # ---------------------------------------------------------------------------
 
@@ -189,6 +235,40 @@ def _invoke_bedrock_agent(session_id: str, message: str) -> str:
 # ---------------------------------------------------------------------------
 # Session persistence
 # ---------------------------------------------------------------------------
+
+def _get_session_context(session_id: str) -> Optional[str]:
+    """Retrieve recent conversation context for the session (memory support).
+    
+    Returns a summary of recent messages to provide context to the agent,
+    or None if no prior conversation exists.
+    """
+    try:
+        table = _get_dynamodb().Table(TABLE_SESSIONS)
+        response = table.get_item(Key={"session_id": session_id})
+        item = response.get("Item")
+        if not item:
+            return None
+
+        messages = item.get("messages", [])
+        if not messages:
+            return None
+
+        # Return last 6 messages as context (3 turns)
+        recent = messages[-6:]
+        context_lines = []
+        for msg in recent:
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            # Truncate long messages for context
+            if len(content) > 500:
+                content = content[:500] + "..."
+            context_lines.append(f"{role}: {content}")
+
+        return "\n".join(context_lines)
+    except Exception:
+        logger.warning("Failed to retrieve session context for %s", session_id, exc_info=True)
+        return None
+
 
 def _store_conversation(
     session_id: str,
@@ -223,7 +303,7 @@ def _store_conversation(
             table.put_item(Item={
                 "session_id": session_id,
                 "user_id": "anonymous",
-                "agent_id": BEDROCK_AGENT_ID or "mock-agent",
+                "agent_id": AGENTCORE_FUNCTION_NAME or BEDROCK_AGENT_ID or "mock-agent",
                 "messages": [
                     {"role": "user", "content": user_message, "ts": ts},
                     {"role": "assistant", "content": assistant_response, "ts": ts},
@@ -264,8 +344,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     start_time = time.time()
 
-    # Try Bedrock Agent, fall back to mock
-    if BEDROCK_AGENT_ID and BEDROCK_AGENT_ALIAS_ID:
+    # Priority: AgentCore > Bedrock Agent > Mock
+    if AGENTCORE_FUNCTION_NAME:
+        try:
+            response_text = _invoke_agentcore(session_id, message)
+            source = "agentcore-strands"
+        except Exception:
+            logger.warning("AgentCore invocation failed, trying Bedrock Agent fallback", exc_info=True)
+            if BEDROCK_AGENT_ID and BEDROCK_AGENT_ALIAS_ID:
+                try:
+                    response_text = _invoke_bedrock_agent(session_id, message)
+                    source = "bedrock-agent"
+                except Exception:
+                    logger.warning("Bedrock Agent also failed, using mock", exc_info=True)
+                    response_text = _mock_response(message)
+                    source = "mock-fallback"
+            else:
+                response_text = _mock_response(message)
+                source = "mock-fallback"
+    elif BEDROCK_AGENT_ID and BEDROCK_AGENT_ALIAS_ID:
         try:
             response_text = _invoke_bedrock_agent(session_id, message)
             source = "bedrock-agent"
@@ -274,7 +371,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             response_text = _mock_response(message)
             source = "mock-fallback"
     else:
-        logger.info("Bedrock Agent not configured, using mock response")
+        logger.info("No agent configured, using mock response")
         response_text = _mock_response(message)
         source = "mock"
 

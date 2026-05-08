@@ -1,0 +1,78 @@
+graph TD
+    subgraph UI["React SPA - CloudFront + S3"]
+        A[Chat Panel] -->|"POST /v1/query"| B[API Service]
+    end
+
+    subgraph API["API Gateway REST /prod"]
+        C["/v1/query endpoint"]
+    end
+
+    subgraph COMPUTE["Lambda - Query Handler"]
+        D["query_handler.py"]
+    end
+
+    subgraph BEDROCK["Amazon Bedrock Agents"]
+        F["Supervisor Agent - dcai-supervisor"]
+        G["Mistral Large 3 - 675B Instruct"]
+        F -->|"Intent Classification & Routing"| G
+        G -->|"Select Action Groups"| F
+    end
+
+    subgraph ACTIONS["Action Group Lambdas"]
+        H1["LookupCreditRating"]
+        H2["GetFinancialMetrics"]
+        H3["QueryMarketData"]
+        H4["AssessESGRisk"]
+        H5["GenerateReport"]
+        H6["SyncMoodysData"]
+    end
+
+    subgraph DATA["DynamoDB - Knowledge Bases"]
+        T1[("dcai-operators")]
+        T2[("dcai-metrics")]
+        T3[("dcai-market-data")]
+        T4[("dcai-esg-profiles")]
+    end
+
+    subgraph TRACE["Observability"]
+        O1[("dcai-traces")]
+        O2["CloudWatch Metrics"]
+    end
+
+    subgraph SESSION["Session Store"]
+        S[("dcai-sessions")]
+    end
+
+    %% Main query flow
+    B --> C
+    C --> D
+    D -->|"invoke_agent - streaming"| F
+    D -->|"Store turn"| S
+
+    %% Agent dispatches to action groups via OpenAPI
+    F -->|"OpenAPI contract"| H1
+    F -->|"OpenAPI contract"| H2
+    F -->|"OpenAPI contract"| H3
+    F -->|"OpenAPI contract"| H4
+    F -->|"OpenAPI contract"| H5
+    F -->|"OpenAPI contract"| H6
+
+    %% Action groups query DynamoDB
+    H1 -->|"scan/match"| T1
+    H2 -->|"query"| T2
+    H3 -->|"scan/match"| T3
+    H4 -->|"get_item"| T4
+
+    %% Trace flow
+    H1 --> O1
+    H2 --> O1
+    H3 --> O1
+    H4 --> O1
+    O1 --> O2
+
+    %% Response path
+    H1 -->|"responseBody"| F
+    F -->|"Synthesized NL response - streamed"| D
+    D -->|"AgentResponse JSON"| C
+    C -->|"200 OK"| B
+    B -->|"Display"| A

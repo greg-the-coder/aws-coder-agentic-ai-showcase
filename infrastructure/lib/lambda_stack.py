@@ -101,6 +101,15 @@ class LambdaStack(Stack):
                 resources=["*"],
             )
         )
+        # Allow query handler to invoke AgentCore supervisor Lambda
+        api_handler_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["lambda:InvokeFunction"],
+                resources=[
+                    f"arn:aws:lambda:{self.region}:{self.account}:function:dcai-agentcore-supervisor",
+                ],
+            )
+        )
         data_stack.sessions_table.grant_read_write_data(api_handler_role)
         data_stack.traces_table.grant_read_write_data(api_handler_role)
         data_stack.reports_bucket.grant_read(api_handler_role)
@@ -199,8 +208,13 @@ class LambdaStack(Stack):
         )
 
         # -----------------------------------------------------------------
-        # API QUERY HANDLER — receives user query, invokes Bedrock Agent
+        # API QUERY HANDLER — receives user query, invokes AgentCore or Bedrock Agent
         # -----------------------------------------------------------------
+        query_env = {
+            **common_env,
+            "AGENTCORE_FUNCTION_NAME": "dcai-agentcore-supervisor",
+        }
+
         self.api_query_fn = _lambda.Function(
             self,
             "ApiQueryFn",
@@ -208,7 +222,11 @@ class LambdaStack(Stack):
             handler="query_handler.handler",
             code=_lambda.Code.from_asset("../lambda/api"),
             role=api_handler_role,
-            **fn_defaults,
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            memory_size=512,
+            timeout=Duration.seconds(95),
+            environment=query_env,
+            log_retention=logs.RetentionDays.TWO_WEEKS,
         )
 
         self.api_sessions_fn = _lambda.Function(
