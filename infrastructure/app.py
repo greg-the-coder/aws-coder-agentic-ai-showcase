@@ -9,6 +9,7 @@ from lib.api_stack import ApiStack
 from lib.agent_stack import AgentStack
 from lib.agentcore_stack import DcaiAgentCoreStack
 from lib.frontend_stack import FrontendStack
+from lib.mvp2_stack import Mvp2Stack
 
 app = cdk.App()
 
@@ -61,5 +62,17 @@ frontend_stack = FrontendStack(
     api_stack=api_stack,
     env=env,
 )
+
+# ==========================================================================
+# MVP-2: Self-contained stack — separate API GW + CloudFront + AgentCore
+# Deploys independently from existing stacks to preserve running demo.
+# ==========================================================================
+mvp2_stack = Mvp2Stack(
+    app,
+    "DcaiMvp2Stack",
+    env=env,
+)
+# Only depends on data_stack existing (uses same DynamoDB tables)
+mvp2_stack.add_dependency(data_stack)
 
 app.synth()

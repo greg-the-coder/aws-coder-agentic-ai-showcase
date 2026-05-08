@@ -29,6 +29,7 @@ def create_supervisor_agent() -> Agent:
     model = BedrockModel(
         model_id=BEDROCK_MODEL_ID,
         region_name=AWS_REGION,
+        streaming=False,
     )
 
     system_prompt = _load_system_prompt()

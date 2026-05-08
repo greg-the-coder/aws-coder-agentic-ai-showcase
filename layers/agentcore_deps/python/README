@@ -1,7 +1,0 @@
-# This directory is populated by running build_layer.sh
-# It contains the Python packages for the AgentCore Lambda layer:
-#   - strands-agents
-#   - strands-agents-bedrock
-#   - boto3
-#
-# Run: cd layers/agentcore_deps && ./build_layer.sh

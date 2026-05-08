@@ -21,3 +21,9 @@ Thumbs.db
 
 # Lambda packages
 *.zip
+
+# Agent Lambda deploy artifact (built from agent/ + prompts/)
+agent_deploy/
+
+# Lambda layer installed deps (built via pip install)
+layers/agentcore_deps/python/
