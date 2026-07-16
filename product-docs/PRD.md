@@ -149,7 +149,7 @@ The Data Center Investments Agent is an AI-powered conversational assistant depl
 
 ## 6. Integration Requirements
 
-### 6.1 AWS Bedrock Agents
+### 6.1 AWS Bedrock AgentCore
 
 - The agent SHALL be deployed as a Bedrock Agent with Action Groups mapped to each tool (Moody's lookup, financial analysis, market query, ESG assessment, report generation).
 - The agent SHALL use Amazon Bedrock Knowledge Bases backed by OpenSearch Serverless for retrieval-augmented generation over Moody's rating rationales.
