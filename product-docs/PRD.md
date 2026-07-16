@@ -78,7 +78,7 @@ The Data Center Investments Agent is an AI-powered conversational assistant depl
                          ┌──────────────────┐
                          │   Supervisor      │
            User ────────>│   Agent           │
-           Query         │(Bedrock AgentCore)  │
+           Query         │(Bedrock AgentCore)│
                          └──┬───┬───┬───┬───┘
                             │   │   │   │
                ┌────────────┘   │   │   └────────────┐
@@ -149,9 +149,9 @@ The Data Center Investments Agent is an AI-powered conversational assistant depl
 
 ## 6. Integration Requirements
 
-### 6.1 AWS Bedrock AgentCore
+### 6.1 Amazon Bedrock AgentCore
 
-- The agent SHALL be deployed as a Bedrock Agent with Action Groups mapped to each tool (Moody's lookup, financial analysis, market query, ESG assessment, report generation).
+- The agent SHALL be deployed using Bedrock AgentCore with Action Groups mapped to each tool (Moody's lookup, financial analysis, market query, ESG assessment, report generation).
 - The agent SHALL use Amazon Bedrock Knowledge Bases backed by OpenSearch Serverless for retrieval-augmented generation over Moody's rating rationales.
 - Foundation model: Mistral AI (Mistral Large 2 or Mistral Small) via Bedrock; model selection SHALL be configurable without redeployment.
 
