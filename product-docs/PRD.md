@@ -78,7 +78,7 @@ The Data Center Investments Agent is an AI-powered conversational assistant depl
                          ┌──────────────────┐
                          │   Supervisor      │
            User ────────>│   Agent           │
-           Query         │  (Bedrock Agent)  │
+           Query         │(Bedrock AgentCore)  │
                          └──┬───┬───┬───┬───┘
                             │   │   │   │
                ┌────────────┘   │   │   └────────────┐
