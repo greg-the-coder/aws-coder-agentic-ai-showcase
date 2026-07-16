@@ -1,6 +1,6 @@
 # Data Center Investments Agent
 
-An AI-powered investment analysis agent focused on the data center sector, deployed to **AWS Bedrock Agents** (Agent Core). The agent integrates **Moody's** credit risk analytics, leverages **Workato** for enterprise data pipelines, and uses **Arize** for LLM observability.
+An AI-powered investment analysis agent focused on the data center sector, deployed to **Amazon Bedrock AgentCore**. The agent integrates **Moody's** credit risk analytics, leverages **Workato** for enterprise data pipelines, and uses **Arize** for LLM observability.
 
 ## Problem
 
@@ -20,7 +20,7 @@ A multi-agent system that provides natural language access to comprehensive data
 
 | Layer | Technology |
 |-------|-----------|
-| Agent Runtime | AWS Bedrock Agents, Python 3.12+, Lambda |
+| Agent Runtime | Bedrock AgentCore, Python 3.12+, Lambda |
 | LLM | Mistral Large 2 (reasoning), Mistral Small (fast), Titan Embeddings v2 |
 | RAG | Bedrock Knowledge Bases, OpenSearch Serverless |
 | Data | S3, DynamoDB, Aurora PostgreSQL |
