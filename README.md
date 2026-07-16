@@ -32,7 +32,7 @@ Thirteen **Lambda** functions (Python 3.12) handle all compute:
 - **Action Group Handlers** — Six functions (`credit rating`, `financial metrics`, `market data`, `ESG risk`, `generate report`, `sync Moodys`) are wired as Bedrock Agent action groups.
 - **Seed** — A standalone `seed data` function populates DynamoDB with operator data for six data center companies.
 
-### Amazon Bedrock Agents
+### Amazon Bedrock AgentCore
 
 A **Supervisor Agent** powered by Mistral Large 3 (675B) uses the Supervisor Router pattern to dispatch queries to three specialist **Sub-Agents**: Credit Risk, Market Analytics, and ESG Risk. Each sub-agent invokes its corresponding action group Lambdas and the Supervisor synthesizes cross-domain responses when needed.
 
@@ -46,7 +46,7 @@ A **Supervisor Agent** powered by Mistral Large 3 (675B) uses the Supervisor Rou
 
 ## Features
 
-- **Bedrock Agent with Mistral Large 3** — Natural language investment analysis powered by a 675B parameter model via multi-agent collaboration (Supervisor Router pattern)
+- **Bedrock AgentCore with Mistral Large 3** — Natural language investment analysis powered by a 675B parameter model via multi-agent collaboration (Supervisor Router pattern)
 - **6 Action Groups** — Credit Rating lookup, Financial Metrics, Market Data, ESG Risk assessment, Report Generation, Moody's Sync
 - **Mock Workato Integration** — iPaaS simulation with recipe triggering, status polling, webhook ingestion, and connection health checks
 - **Mock Arize Integration** — LLM observability simulation with trace storage, evaluation metrics, latency/token tracking, and CloudWatch metric publishing
